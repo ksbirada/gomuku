@@ -4,26 +4,11 @@ Do not change the API signatures for __init__ or __call__
 __call__ must return a valid action
 """
 
-# # """
-# Implement your AI here
-# Do not change the API signatures for __init__ or __call__
-# __call__ must return a valid action
-# """
-# class Submission:
-#     def __init__(self, board_size, win_size):
-#         ### Add any additional initiation code here
-#         pass
-#
-#     def __call__(self, state):
-#
-#         ### Replace with your implementation
-#         actions = state.valid_actions()
-#         return actions[-1]
-
 import numpy as np
 import random
 
 class Node:
+
     def __init__(self, state, action=None, parent=None):
         self.state = state
         self.action = action
@@ -32,10 +17,12 @@ class Node:
         self.visits = 0
         self.value = 0
 
+    # Checks if all possible actions from the current state have corresponding child nodes.
     def fully_expanded(self):
         actions = self.state.valid_actions()
         return all(child.action in actions for child in self.children)
 
+    # Selects a child node based on the UCT (Upper Confidence Bound for Trees) algorithm.
     def select_child(self, exploration_weight=1.0):
         if not self.children:
             raise RuntimeError("Node has no children to select from.")
@@ -52,13 +39,14 @@ class Node:
         selected_child = max(self.children, key=uct_score)
         return selected_child
 
+    # Selects a child node based on the alpha-beta pruning algorithm.
     def alpha_beta_select_child(self, alpha, beta):
         if not self.children:
             raise RuntimeError("Node has no children to select from.")
 
         def alpha_beta_score(child):
             if child.visits == 0:
-                return float('inf')  # Return positive infinity for unvisited nodes
+                return float('inf')
             exploitation_term = child.value / child.visits
             return exploitation_term
 
@@ -75,6 +63,7 @@ class Node:
 
         return best_child
 
+    #Expands the tree by adding a child node corresponding chosen valid action
     def expand(self):
         actions = self.state.valid_actions()
         if not actions:
@@ -86,21 +75,24 @@ class Node:
         self.children.append(child_node)
         return child_node
 
+    # Updates the node and its ancestors with the result of a simulation.
     def backpropagate(self, result):
         node = self
         while node is not None:
             node.visits += 1
             node.value += result
-            result = 1 - result  # Alternate the result for each level
+            result = 1 - result
             node = node.parent
 
 class Submission:
+    # Initializes a submission with the specified board size and win size
     def __init__(self, board_size, win_size):
         self.board_size = board_size
         self.win_size = win_size
         self.exploration_weight = 1.0
         self.uct_budget = 1000
 
+    #The main method that returns the best action based on the Monte Carlo Tree Search (MCTS) algorithm
     def __call__(self, state):
         root = Node(state)
 
@@ -112,16 +104,21 @@ class Submission:
         best_child = max(root.children, key=lambda c: c.visits)
         return best_child.action
 
+    #The tree policy determines how to navigate the tree during the selection phase
     def tree_policy(self, node):
         while not node.state.is_game_over():
             if not node.fully_expanded():
                 return node.expand()
             elif node.children:
-                node = node.alpha_beta_select_child(-float('inf'), float('inf'))
+                if random.random() < 0.5:  # Placeholder condition (replace with your criteria)
+                    node = node.select_child()
+                else:
+                    node = node.alpha_beta_select_child(-float('inf'), float('inf'))
             else:
                 return node.expand()  # If no children, expand
         return node
 
+    #Evaluates the given state through simulations.
     def evaluate(self, state):
         while not state.is_game_over():
             actions = state.valid_actions()
@@ -129,11 +126,12 @@ class Submission:
             state = state.perform(action)
         return -state.current_score()
 
+    #Backpropagates the result of a simulation up the tree.
     def back_update(self, node, reward):
         while node is not None:
             node.visits += 1
             node.value += reward
-            reward = 1 - reward  # Alternate the result for each level
+            reward = 1 - reward
             node = node.parent
 
 
